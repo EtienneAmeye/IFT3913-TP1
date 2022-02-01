@@ -1,0 +1,16 @@
+public class Test {
+    //This class is a test
+
+    private String some_variable;
+
+    public Test(int anotherVariable)
+    {
+        this.some_variable = anotherVariable;
+        /*
+        * Yes, I known this shouldn't work
+        */
+    }
+}
+
+More invalid stuff at the end
+
