@@ -4,14 +4,14 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.List;
+import java.util.regex.Pattern;
 
 public class ClassCounter
 {
     private String filePath;
 
     private int loc = 0;
-    private int cloc = 1;
+    private int cloc = 0;
 
     public ClassCounter(String filePath)
     {
@@ -49,20 +49,63 @@ public class ClassCounter
     public void read() throws IOException
     {
         Reader reader = readFile();
+        boolean multiLineComment = false;
+
 
         //read and count
-        List<String> line = reader.readLine();
+        String line = reader.readLine();
 
-        //Count the lines
         while(line != null)
         {
-            //Only count non-empty line for now
-            if(!line.isEmpty())
+            //Remove white space character
+            line = line.trim();
+
+            if(multiLineComment)
             {
                 loc++;
+                cloc++;
+
+                if(line.matches(".*\\*/.*"))
+                {
+                    multiLineComment = false;
+                }
+            }
+            else if(!line.isEmpty())
+            {
+                loc++;
+
+                //Delete '"' inside of strings
+                line = line.replace("\\\"", "");
+
+                //Delete strings
+                do{
+                    line = line.replaceFirst("\"[^\"]*\"", "");
+                } while(Pattern.matches(".*\"[^\"]*\".*", line));
+
+                //Check for multiline comment
+                if(Pattern.matches(".*/\\*.*", line))
+                {
+                    cloc++;
+
+                    //Delete single line comment
+                    do{
+                        line = line.replaceFirst("/\\*.*\\*/", "");
+                    } while(Pattern.matches(".*/\\*.*\\*/.*", line));
+
+                    //Check if the comment actually span multiple lines
+                    if(Pattern.matches(".*/\\*.*", line))
+                    {
+                        multiLineComment = true;
+                    }
+                }
+                //Check for inline comment
+                if(Pattern.matches(".*//.*", line))
+                {
+                    cloc++;
+                }
             }
 
-            line = reader.readLine();       //Move to the next line
+            line = reader.readLine();
         }
     }
 

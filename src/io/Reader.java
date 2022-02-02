@@ -121,7 +121,7 @@ public class Reader
      *
      * @return A list of words
      */
-    public List<String> readLine()
+    public List<String> readWordLine()
     {
         ArrayList<String> lines = new ArrayList<>();
 
@@ -139,5 +139,46 @@ public class Reader
         }
 
         return lines;
+    }
+
+    /**
+     * Read a full line from the text, excluding the ending new-line character.
+     * Move the head of the reader to the start of the next line.
+     *
+     * @return A line, as a String
+     */
+    public String readLine()
+    {
+        StringBuilder line = new StringBuilder();
+
+        String c = readChar();
+        if(c.matches(END_OF_FILE_CHAR)) return null;        //return null when no new line
+        while(!c.matches(NEW_LINE_CHAR) && !c.matches(END_OF_FILE_CHAR))
+        {
+            line.append(c);
+            c = readChar();
+        }
+
+        return line.toString();
+    }
+
+    public String getText()
+    {
+        return text;
+    }
+
+    public int getHead()
+    {
+        return head;
+    }
+
+    public int getLine()
+    {
+        return line;
+    }
+
+    public int getColumn()
+    {
+        return column;
     }
 }
