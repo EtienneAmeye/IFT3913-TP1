@@ -10,11 +10,13 @@ public class ClassCounter
 {
     public static final String NEW_LINE = "\n";
     public static final String WHITE_SPACES = ";";
-    public static final String WORD_SEPARATORS = "[\\{\\}\\(\\)]";
+    public static final String WORD_SEPARATORS = "[\\{\\}\\(\\)]"                   // general
+            + "|" + "\"([^\"]|([^\\\\]\\\\(\\\\\\\\)*\"))*[^\\\\](\\\\\\\\)*\""     // for string
+            + "|" + "'([^']|([^\\\\]\\\\(\\\\\\\\)*'))*[^\\\\](\\\\\\\\)*'";        // for char
     public static final HashMap<String, String> DELIMITERS = new HashMap<>();
     static {
-        DELIMITERS.put("\"", "[^\\\\]\"");
-        DELIMITERS.put("'", "[^\\\\]'");
+        //DELIMITERS.put("\"", "[^\\\\]\"");
+        //DELIMITERS.put("'", "[^\\\\]'");
         DELIMITERS.put("//", "\n|\\z");
         DELIMITERS.put("/\\*", "\\*/");
     }
@@ -43,21 +45,23 @@ public class ClassCounter
         //Open the file
         try(BufferedReader bufferedReader = new BufferedReader(new FileReader(file)))
         {
-            StringBuilder text = new StringBuilder();
+            StringBuilder textBuilder = new StringBuilder();
 
             //Read the content of the file
             int c = bufferedReader.read();
             while(c != -1)
             {
-                text.append((char) c);
+                textBuilder.append((char) c);
                 c = bufferedReader.read();
             }
 
             //Create a reader with the content
-            return new WordReader(text.toString(), WHITE_SPACES, WORD_SEPARATORS, DELIMITERS);
+            String text = textBuilder.toString();
+            return new WordReader(text, WHITE_SPACES, WORD_SEPARATORS, DELIMITERS);
         }
     }
 
+    //FOR TESTING
     public void test() throws IOException
     {
         WordReader reader = readFile();
@@ -79,36 +83,43 @@ public class ClassCounter
     {
         WordReader reader = readFile();
 
-        boolean emptyLine = true;
-        boolean nonCommentedLine = true;
-
-        String word = reader.readNexWord();
-        while(word != null)
+        try
         {
-            //Check if end of line
-            if(word.equals(NEW_LINE))
+            boolean emptyLine = true;
+            boolean nonCommentedLine = true;
+
+            String word = reader.readNexWord();
+            while (word != null)
             {
-                emptyLine = true;
-                nonCommentedLine = true;
+                //Check if end of line
+                if (word.equals(NEW_LINE))
+                {
+                    emptyLine = true;
+                    nonCommentedLine = true;
+                }
+
+                //Update the loc count
+                if (emptyLine && !word.equals(NEW_LINE))
+                {
+                    emptyLine = false;
+                    loc++;
+                }
+
+                //Update the cloc count
+                if (nonCommentedLine)            //only if no comment is already on the line
+                {
+                    nonCommentedLine = !countCLOC(word);
+                }
+
+                //Update the predicat count
+                countPredicat(word);
+
+                word = reader.readNexWord();
             }
-
-            //Update the loc count
-            if(emptyLine && !word.equals(NEW_LINE))
-            {
-                emptyLine = false;
-                loc++;
-            }
-
-            //Update the cloc count
-            if(nonCommentedLine)            //only if no comment is already on the line
-            {
-                nonCommentedLine = !countCLOC(word);
-            }
-
-            //Update the predicat count
-            countPredicat(word);
-
-            word = reader.readNexWord();
+        }
+        catch (RuntimeException e)
+        {
+            throw new IOException("Can't read " + filePath, e);
         }
     }
 
@@ -122,14 +133,41 @@ public class ClassCounter
         return cloc;
     }
 
-    public int getDC()
-    {
-        return getLOC() / getCLOC();
-    }
-
     public int getPredicat()
     {
         return predicat;
+    }
+
+    /**
+     * Removes the strings and chars from a text
+     * and returned the text.
+     * <p/>
+     * This is used as a temporary fixed to parsing
+     * the text with regular expression.
+     *
+     * @param text The text to clean
+     * @return A text with strings or chars
+     */
+    private String clearString(String text)
+    {
+        String cleanedText = text;
+
+        //Remove all \\ from string and char to avoid confusion with \"
+        cleanedText = cleanedText.replaceAll("\\\\\\\\", "");
+
+        //Remove all \" from string and char to avoid confusion with "
+        cleanedText = cleanedText.replaceAll("\\\\\"", "");
+
+        //Remove all \' from string and char to avoid confusion with '
+        cleanedText = cleanedText.replaceAll("\\\\'", "");
+
+        //Remove all strings
+        cleanedText = cleanedText.replaceAll("\"[^\"]*\"", "");
+
+        //Remove all chars
+        cleanedText = cleanedText.replaceAll("'[^']*'", "");
+
+        return cleanedText;
     }
 
     /**

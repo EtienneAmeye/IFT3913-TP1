@@ -104,6 +104,7 @@ public class WordReader
         //Check for delimiters
         for(Map.Entry<String, String> delimiter : specialDelimiters.entrySet())
         {
+            //Found a delimiter
             if(match(delimiter.getKey()))
             {
                 //Extract the entire section
@@ -125,7 +126,8 @@ public class WordReader
                 //No section end -> error
                 if(sectionEnd == -1)
                 {
-                    throw new RuntimeException("Missing ending delimiters " + delimiter.getValue());
+                    throw new RuntimeException("Missing ending delimiters " + delimiter.getValue()
+                            + " at " + peekChar() + "(" + head + ")");
                 }
 
                 word = text.substring(sectionStart, sectionEnd);

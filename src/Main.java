@@ -4,35 +4,19 @@ public class Main
 {
     public static void main(String[] args) throws IOException
     {
-        //main function
-
         String filePath = "test";
+        String projectPath = "C:\\Users\\etien\\Documents\\Programmation\\Projet\\SimWorld\\src";
+        String outputPath = "";
 
-        ClassCounter counter = new ClassCounter(filePath);
-        counter.read();
+        CounterController controller = new CounterController(projectPath, outputPath);
+        controller.count();
 
-        System.out.println("\nLOC: " + counter.getLOC());
-        System.out.println("\nCLOC: " + counter.getCLOC());
-
-        //FOR TESTING
-//        String test = "This is /*A comment*/ //Comment";
+//        ClassCounter counter = new ClassCounter(filePath);
+//        counter.test();
 //
-//        test = test.trim();
-//        String newTest = test.replace("\\\"", "");
-//        System.out.println(newTest);
-//
-//        do{
-//            newTest = newTest.replaceFirst("\"[^\"]*\"", "");
-//
-//        } while(Pattern.matches(".*\"[^\"]*\".*", newTest));
-//        System.out.println(newTest);
-//
-//        do{
-//            newTest = newTest.replaceFirst("/\\*.*\\*/", "");
-//        } while(Pattern.matches(".*/\\*.*\\*/.*", newTest));
-//        System.out.println(newTest);
-//
-//        boolean resultA = Pattern.matches(".*(//|/\\*.*\\*/).*", newTest);
-//        System.out.println("Result A: " + resultA);
+//        System.out.println();
+//        System.out.println("LOC: " + counter.getLOC());
+//        System.out.println("CLOC: " + counter.getCLOC());
+//        System.out.println("Predicat: " + counter.getPredicat());
     }
 }
