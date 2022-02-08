@@ -4,9 +4,13 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 
+/**
+ * This class is used to write a matrice of string
+ * into a csv file.
+ */
 public class CSVWriter
 {
-    public static final String SEPARATOR = ",";
+    public static final String SEPARATOR = ",";     //Default separator of the csv
 
     private String filePath;
     private String[][] content;
@@ -23,7 +27,11 @@ public class CSVWriter
         this.content = content;
     }
 
-
+    /**
+     * Write the content into a csv file.
+     *
+     * @throws IOException If I/O errors occur
+     */
     public void write() throws IOException
     {
         try(BufferedWriter writer = new BufferedWriter(new FileWriter(filePath)))       //Open the file
