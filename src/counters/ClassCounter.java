@@ -6,6 +6,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.HashMap;
 
 /**
  * This class is used to mesure differents metrics
@@ -16,14 +17,23 @@ public class ClassCounter
 {
     //region Constant parameters for the WordReader
     public static final String NEW_LINE = "\n";
-    public static final String WHITE_SPACES = "[ \t\r]";                                                       // for comment
+    public static final String WHITE_SPACES = "[ \t\r]";
     public static final String SEPARATORS = "[;=\\[\\]\\{\\}\\(\\)]";
-    public static final String STRING = "\"([^\"]|([^\\\\]\\\\(\\\\\\\\)*\"))*[^\\\\](\\\\\\\\)*\"";
-    public static final String CHAR = "'([^']|([^\\\\]\\\\(\\\\\\\\)*'))*[^\\\\](\\\\\\\\)*'";
+    public static final String STRING = "(\"\")|(\"([^\"]|([^\\\\]\\\\(\\\\\\\\)*\"))*[^\\\\](\\\\\\\\)*\")";
+    public static final String CHAR = "('')|('([^']|([^\\\\]\\\\(\\\\\\\\)*'))*[^\\\\](\\\\\\\\)*')";
     public static final String COMMENT = "//.*";
-    public static final String MULTI_LINE_COMMENT = "/\\*([^\\*]|(\\*[^/]))*\\*/";
+    public static final String MULTI_LINE_COMMENT = "/\\*([^\\*]|(\\*[^/]))*\\*/";       //Can't be used as a special words
 
     public static final String PREDICAT = "if|while|for|switch|else";
+
+    /**
+     * Delimiters are used for multi-comment to prevent stack overflow.
+     * Ideally, this should be a regex
+     */
+    public static HashMap<String, String> DELIMITERS = new HashMap<>();
+    static {
+        DELIMITERS.put("/\\*", "\\*/");
+    }
     //endregion
 
     private String filePath;            //The path to the file of the class
@@ -124,8 +134,8 @@ public class ClassCounter
 
             //Create a reader with the content
             String text = textBuilder.toString();
-            return new WordReader(text, WHITE_SPACES, SEPARATORS, STRING,
-                    CHAR, COMMENT, MULTI_LINE_COMMENT);
+            return new WordReader(text, WHITE_SPACES, DELIMITERS, SEPARATORS, STRING,
+                    CHAR, COMMENT);
         }
     }
 
@@ -141,7 +151,7 @@ public class ClassCounter
         String word = reader.readNexWord();         //Read first word
         while (word != null)
         {
-            if(word.matches(MULTI_LINE_COMMENT))    //A multi line comment
+            if(word.startsWith("/*"))               //A multi line comment (fixme not ideal)
             {
                 //Update the loc count
                 int size = getMultiLineCommentSize(word);
@@ -193,11 +203,11 @@ public class ClassCounter
 
                 isCommentedLine = false;
             }
-            else if(word.matches(COMMENT))      //fixme use regex
+            else if(word.matches(COMMENT))          //Comment
             {
                 isCommentedLine = true;
             }
-            else if(word.matches(MULTI_LINE_COMMENT))      //fixme use regex
+            else if(word.startsWith("/*"))          //Multi-line comment (fixme not ideal)
             {
                 // Update the cloc count with the size of the multi line comment
                 int size = getMultiLineCommentSize(word);
@@ -233,7 +243,8 @@ public class ClassCounter
                 + "[^;=\"/\\(\\)\\{\\}]"
                 + "|" + commentRegex
                 + ")*";                                         //Regex that matches word&comment
-        String functionRegex = anythingRegex
+        String functionRegex = "(" + WHITE_SPACES + ")*" + "[^ \t\r;=\"/\\(\\)\\{\\}]"
+                + anythingRegex
                 + "\\(" + anythingRegex + "\\)"
                 + anythingRegex + "\\{";                        //Regex that matches method declaration
 
@@ -359,6 +370,8 @@ public class ClassCounter
         return str.matches(WHITE_SPACES);
     }
 
+    //Do not use because MULTI_LINE_COMMENT causes issue
+    @Deprecated
     private boolean isComment(String str)
     {
         return str.matches(COMMENT) || str.matches(MULTI_LINE_COMMENT);

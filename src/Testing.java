@@ -9,7 +9,7 @@ public class Testing
 {
     public static void main(String[] args) throws IOException
     {
-        String filePath = "test";
+        String filePath = "temp";
 
         ClassCounter counter = new ClassCounter(filePath);
         counter.read();

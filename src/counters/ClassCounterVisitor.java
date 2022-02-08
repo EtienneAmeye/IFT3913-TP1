@@ -95,9 +95,17 @@ public class ClassCounterVisitor implements FileVisitor<Path>
             String classPath = filePath.toString();
             System.out.print("\tVisiting " + className);
 
-            countClass(className, classPath, file);
+            try
+            {
+                countClass(className, classPath, file);
+            }
+            catch(Exception e)
+            {
+                System.out.println("\tERROR");
+                throw e;
+            }
 
-            System.out.println("\t Count done!");
+            System.out.println("\tCount done!");
         }
         else
         {
@@ -141,10 +149,9 @@ public class ClassCounterVisitor implements FileVisitor<Path>
      * @param exc null if the iteration of the directory completes without an error;
      *            otherwise the I/O exception that caused the iteration of the directory to complete prematurely
      * @return Always Continue
-     * @throws IOException If an I/O error occurs
      */
     @Override
-    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException
+    public FileVisitResult postVisitDirectory(Path dir, IOException exc)
     {
         if(exc == null)
         {
@@ -165,7 +172,7 @@ public class ClassCounterVisitor implements FileVisitor<Path>
         else
         {
             currentPackage = root.relativize(dir.getParent());
-            System.err.println("Could not complete the visit of " + pathToPackageName(currentPackage));
+            System.err.println(" could not complete the visit of " + pathToPackageName(currentPackage));
         }
 
         return FileVisitResult.CONTINUE;
