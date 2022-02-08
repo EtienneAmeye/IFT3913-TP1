@@ -24,3 +24,7 @@ hs_err_pid*
 
 #IntelliJ files
 /.idea/
+
+#Testing files
+temp
+test
