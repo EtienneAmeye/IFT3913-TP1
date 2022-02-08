@@ -1,22 +1,21 @@
+import counters.CounterController;
+
 import java.io.IOException;
 
 public class Main
 {
     public static void main(String[] args) throws IOException
     {
-        String filePath = "test";
-        String projectPath = "C:\\Users\\etien\\Documents\\Programmation\\Projet\\SimWorld\\src";
-        String outputPath = "";
+        if(args.length != 2)
+        {
+            throw new IllegalArgumentException("Wrong number of argument. " +
+                    "Should be: <project_path> <output_path>");
+        }
 
-        CounterController controller = new CounterController(projectPath, outputPath);
-        controller.count();
+        String projectPath = args[0];
+        String outputPath = args[1];
 
-//        ClassCounter counter = new ClassCounter(filePath);
-//        counter.test();
-//
-//        System.out.println();
-//        System.out.println("LOC: " + counter.getLOC());
-//        System.out.println("CLOC: " + counter.getCLOC());
-//        System.out.println("Predicat: " + counter.getPredicat());
+        CounterController counter = new CounterController(projectPath, outputPath);
+        counter.count();
     }
 }
