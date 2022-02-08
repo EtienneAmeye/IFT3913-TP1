@@ -1,3 +1,5 @@
+package counters;
+
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
@@ -7,23 +9,52 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+/**
+ * A {@link FileVisitor} that measures different metrics
+ * on each class and package of a java project.
+ * </br>
+ * The measuring is done by {@link ClassCounter}.
+ */
 public class ClassCounterVisitor implements FileVisitor<Path>
 {
     private final Path root;                    //Root of the project (generaly the src folder)
     private Path currentPackage;                //Path of the currently visited package (relative to the root)
 
-    private final HashMap<String, Integer> classLOC = new HashMap<>();
-    private final HashMap<String, Integer> classCLOC = new HashMap<>();
-    private final HashMap<String, Float> classDC = new HashMap<>();
-    private final HashMap<String, Integer> classWMC = new HashMap<>();
-    private final HashMap<String, Float> classBC = new HashMap<>();
+    //Measures for each class
+    private final HashMap<String, Integer> classLOC
+            = new HashMap<>();
+    private final HashMap<String, Integer> classCLOC
+            = new HashMap<>();
+    private final HashMap<String, Float> classDC
+            = new HashMap<>();
+    private final HashMap<String, Integer> classWMC
+            = new HashMap<>();
+    private final HashMap<String, Float> classBC
+            = new HashMap<>();
 
-    private final ArrayList<String[]> classTable = new ArrayList<>();
-    private final ArrayList<String[]> packageTable = new ArrayList<>();
+    //Arrays for the csv
+    private final ArrayList<String[]> classTable
+            = new ArrayList<>();       // {path, name, loc, cloc, dc, wmc, bc}
+    private final ArrayList<String[]> packageTable
+            = new ArrayList<>();     // {path, name, loc, cloc, dc, wcp, bc}
 
     public ClassCounterVisitor(Path root)
     {
         this.root = root;
+
+        //Add headers to the table
+        classTable.add(new String[]{
+                "chemin", "classe",
+                "classe_LOC", "classe_CLOC",
+                "classe_DC", "WMC",
+                "classe_BC"
+        });
+        packageTable.add(new String[]{
+                "chemin", "paquet",
+                "paquet_LOC", "paquet_CLOC",
+                "paquet_DC", "WCP",
+                "paquet_BC"
+        });
     }
 
     /**
@@ -45,7 +76,7 @@ public class ClassCounterVisitor implements FileVisitor<Path>
 
     /**
      * Visiting a file.
-     * Create a ClassCounter for the file and run it.
+     * Create a counters.ClassCounter for the file and run it.
      *
      * @param file The path to the file
      * @param attrs the file's basic attributes
@@ -60,45 +91,11 @@ public class ClassCounterVisitor implements FileVisitor<Path>
         //Only read java files
         if(filePath.toString().endsWith(".java"))
         {
-            String[] line = new String[7];          // {path, name, loc, cloc, dc, wmc, bc}
-
             String className = pathToClassName(filePath);
             String classPath = filePath.toString();
             System.out.print("\tVisiting " + className);
 
-            //Count
-            ClassCounter counter = new ClassCounter(file.toString());
-            try
-            {
-                //Read
-                counter.read();
-
-                //Make sure no count is zero
-                int loc = counter.getLOC() == 0 ? 0 : counter.getLOC();
-                int cloc = counter.getCLOC() == 0 ? 0 : counter.getCLOC();
-                int wmc = counter.getPredicat() == 0 ? 0 : counter.getPredicat();
-
-                //Put the counts in the maps
-                classLOC.put(className, loc);
-                classCLOC.put(className, cloc);
-                classDC.put(className, ((float) cloc/loc));
-                classWMC.put(className, wmc);
-                classBC.put(className, ((float) cloc/(loc*wmc)));
-            }
-            catch(Exception e)
-            {
-                throw new IOException("Can't read " + file.getFileName(), e);
-            }
-
-            //Create the entry for the csv
-            line[0] = classPath;
-            line[1] = className;
-            line[2] = classLOC.get(className).toString();
-            line[3] = classCLOC.get(className).toString();
-            line[4] = classDC.get(className).toString();
-            line[5] = classWMC.get(className).toString();
-            line[6] = classBC.get(className).toString();
-            classTable.add(line);
+            countClass(className, classPath, file);
 
             System.out.println("\t Count done!");
         }
@@ -151,40 +148,15 @@ public class ClassCounterVisitor implements FileVisitor<Path>
     {
         if(exc == null)
         {
-            String[] line = new String[7];                  // {path, name, loc, cloc, dc, wcp, bc}
-
             String pkgName = pathToPackageName(currentPackage);
             String pkgPath = currentPackage.toString();
             System.out.print("Exiting " + pathToPackageName(currentPackage));
 
-            //Count -> always recursive
-            int loc = 0;
-            int cloc = 0;
-            int wcp = 0;
-
-            for(String[] classEntry : classTable)
+            //Ignore the root package
+            if(!pkgName.isBlank())
             {
-                String classPath = classEntry[0];
-                String className = classEntry[1];
-
-                //Check if the class is in the current package
-                if(className.startsWith(pkgName))
-                {
-                    loc += classLOC.get(className);
-                    cloc += classCLOC.get(className);
-                    wcp += classWMC.get(className);
-                }
+                countPackage(pkgName, pkgPath);
             }
-
-            //Create the entry for the csv
-            line[0] = pkgPath;
-            line[1] = pkgName;
-            line[2] = String.valueOf(loc);
-            line[3] = String.valueOf(cloc);
-            line[4] = String.valueOf((float) cloc / loc);
-            line[5] = String.valueOf(wcp);
-            line[6] = String.valueOf((float) cloc/(loc*wcp));
-            packageTable.add(line);
 
             //Return to the parent
             currentPackage = root.relativize(dir.getParent());
@@ -224,6 +196,134 @@ public class ClassCounterVisitor implements FileVisitor<Path>
     }
 
     /**
+     * Count the different value for a given class.
+     *
+     * @param className The name of the class
+     * @param classPath The path of the class
+     * @param file Absolute path of the class file
+     * @throws IOException If I/O errors occur
+     */
+    private void countClass(String className, String classPath, Path file) throws IOException
+    {
+        String[] line = new String[7];
+
+        //Count
+        ClassCounter counter = new ClassCounter(file.toString());
+        try
+        {
+            //Read
+            counter.read();
+
+            //Make sure no count is zero
+            int loc = counter.getLOC();
+            int cloc = counter.getCLOC();
+            int wmc = counter.getWMC();
+            float dc = loc==0? 0 : ((float) cloc / loc);
+            float bc = loc==0 || wmc==0? 0 : ((float) cloc / (loc*wmc));
+
+            //Put the counts in the maps
+            classLOC.put(className, loc);
+            classCLOC.put(className, cloc);
+            classDC.put(className, dc);
+            classWMC.put(className, wmc);
+            classBC.put(className, bc);
+        }
+        catch(Exception e)
+        {
+            throw new IOException("Can't read " + file.getFileName(), e);
+        }
+
+        //Create the entry for the csv
+        line[0] = classPath;
+        line[1] = className;
+        line[2] = classLOC.get(className).toString();
+        line[3] = classCLOC.get(className).toString();
+        line[4] = classDC.get(className).toString();
+        line[5] = classWMC.get(className).toString();
+        line[6] = classBC.get(className).toString();
+        classTable.add(line);
+    }
+
+    /**
+     * Count the different value for a given package. </br>
+     * Folder without java classe inside are not considered
+     * package.
+     *
+     * @param pkgName The name of the package
+     * @param pkgPath The path of the package
+     */
+    private void countPackage(String pkgName, String pkgPath)
+    {
+        String[] line = new String[7];
+        boolean isPackage = false;
+
+        //Count
+        int loc = 0;
+        int cloc = 0;
+        int wcp = 0;
+
+        for(String[] classEntry : classTable)
+        {
+            String classPath = classEntry[0];
+            String className = classEntry[1];
+
+            //Not recursive
+            if(isInPackage(pkgName, className))
+            {
+                loc += classLOC.get(className);
+                cloc += classCLOC.get(className);
+
+                isPackage = true;
+            }
+
+            //Recursive
+            if(className.startsWith(pkgName))
+            {
+                wcp += classWMC.get(className);
+
+                isPackage = true;
+            }
+        }
+
+        //Empty package and other folder are ignored
+        if(isPackage)
+        {
+            float dc = loc==0? 0 : ((float) cloc / loc);
+            float bc = loc==0 || wcp==0? 0 : ((float) cloc / (loc*wcp));
+
+            //Create the entry for the csv
+            line[0] = pkgPath;
+            line[1] = pkgName;
+            line[2] = String.valueOf(loc);
+            line[3] = String.valueOf(cloc);
+            line[4] = String.valueOf(dc);
+            line[5] = String.valueOf(wcp);
+            line[6] = String.valueOf(bc);
+            packageTable.add(line);
+        }
+    }
+
+    /**
+     * Check if a classe is in a package.
+     *
+     * @param pkg The name of the package
+     * @param cl The name of the class
+     * @return True if the class is in the package, false otherwise
+     */
+    private boolean isInPackage(String pkg, String cl)
+    {
+        if(cl.startsWith(pkg))
+        {
+            String[] pkgArray = pkg.split("\\.");
+            String[] clArray = cl.split("\\.");
+
+            return clArray.length == (pkgArray.length + 1);
+        }
+
+        return false;
+    }
+
+    /**
      * Returned the package name of the given path.
      * This assumes the path points to a folder relative
      * to root.
@@ -257,23 +357,5 @@ public class ClassCounterVisitor implements FileVisitor<Path>
     {
         String[] fileName = file.toString().split("\\.");
         return pathToPackageName(Paths.get(fileName[0]));
-    }
-
-    /**
-     * Builds a path for a package. The path
-     * will be relative to root.
-     *
-     * @param pkgName The name of the package
-     * @return A Path
-     */
-    private Path packageNameToPath(String pkgName)
-    {
-        StringBuilder path = new StringBuilder();
-        for(String pkg : pkgName.split("\\."))
-        {
-            path.append("\\").append(pkg);
-        }
-
-        return Paths.get(path.toString());      //fixme maybe throw exception?
     }
 }
