@@ -1,39 +1,30 @@
 package io;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * This class is used to read through a text by
+ * separating it into words.
+ * </br>
+ * The separation is done using regular expression (regex)
+ * specified by the user.
+ */
 public class WordReader
 {
     public static final String DEFAULT_NEW_LINE = "\n";
     public static final String DEFAULT_END_OF_FILE = "\\z";
-    public static final String DEFAULT_WHITE_SPACE = "[ \t\r]";
 
     private String whiteSpaces;
     private String wordSeparators;
-    private HashMap<String, String> specialDelimiters;
 
     private String text;            //The text to read, as a String
     private int head;               //The head of the reader, indicate the current character to read
 
-    public WordReader(String text, HashMap<String, String> specialDelimiters)
+    public WordReader(String text, String whiteSpaces, String... specialWords)
     {
-        this.specialDelimiters = specialDelimiters;
-        this.whiteSpaces = buildWhiteSpaces(null);
-        this.wordSeparators = buildWordSeparators(null, null, specialDelimiters);
-
-        this.text = text;
-        head = 0;
-    }
-
-    public WordReader(String text, String customWhiteSpaces, String customWordSeparator,
-                      HashMap<String, String> specialDelimiters)
-    {
-        this.specialDelimiters = specialDelimiters;
-        this.whiteSpaces = buildWhiteSpaces(customWhiteSpaces);
-        this.wordSeparators = buildWordSeparators(customWhiteSpaces, customWordSeparator, specialDelimiters);
+        this.whiteSpaces = whiteSpaces;
+        this.wordSeparators = buildWordSeparators(whiteSpaces, specialWords);
 
         this.text = text;
         head = 0;
@@ -62,7 +53,7 @@ public class WordReader
      *
      * @return A character
      */
-    public char readChar()
+    private char readChar()
     {
         if(head >= text.length())
         {
@@ -101,68 +92,111 @@ public class WordReader
             head++;                         //move head to the next character
         }
 
-        //Check for delimiters
-        for(Map.Entry<String, String> delimiter : specialDelimiters.entrySet())
+        //Check if the word start with a separator
+        if (match(wordSeparators))
         {
-            //Found a delimiter
-            if(match(delimiter.getKey()))
-            {
-                //Extract the entire section
-                int sectionStart = head;
-                int sectionEnd;
+            //Treat the separator as a word
+            int wordStart = head;
+            int wordEnd = moveAfterFirst(wordSeparators);       //should always be > 0
 
-                moveToFirst(delimiter.getValue());                          //Move to the end delimiter
-
-                //Special case for newline -> do not add the newline to the word
-                if(match(DEFAULT_NEW_LINE))
-                {
-                    sectionEnd = head;                                      //Before the newline
-                }
-                else
-                {
-                    sectionEnd = moveAfterFirst(delimiter.getValue());      //After the delimiter
-                }
-
-                //No section end -> error
-                if(sectionEnd == -1)
-                {
-                    throw new RuntimeException("Missing ending delimiters " + delimiter.getValue()
-                            + " at " + peekChar() + "(" + head + ")");
-                }
-
-                word = text.substring(sectionStart, sectionEnd);
-                break;      //exit the loop
-            }
+            word = text.substring(wordStart, wordEnd);
         }
-
-        if(word == null)        //indicate that we have been through the loop
+        //Read the word
+        else
         {
-            //Check if the word start with a separator
-            if (match(wordSeparators))
+            int wordStart = head;
+            int wordEnd = moveToFirst(wordSeparators);
+
+            //No word separators -> probably end-of-file
+            if(wordEnd == -1)
             {
-                //Treat the separator as a word
-                int wordStart = head;
-                int wordEnd = moveAfterFirst(wordSeparators);       //should always be > 0
-
-                word = text.substring(wordStart, wordEnd);
+                wordEnd = text.length();
             }
-            //Read the word
-            else
-            {
-                int wordStart = head;
-                int wordEnd = moveToFirst(wordSeparators);
 
-                //No word separators -> probably end-of-file
-                if(wordEnd == -1)
-                {
-                    wordEnd = text.length();
-                }
-
-                word = text.substring(wordStart, wordEnd);
-            }
+            word = text.substring(wordStart, wordEnd);
         }
 
         return word;
+    }
+
+    /**
+     * Check if the text at the head of the reader
+     * matches the given regex. </br>
+     * There is a match if the text starts with an
+     * substring that matches the regex. </br>
+     * The entire text does not have to match the regex.
+     *
+     * @param regex The regex to match
+     * @return True if there is a match, false otherwise
+     */
+    public boolean match(String regex)
+    {
+        Matcher matcher = Pattern.compile(regex).matcher(text);     //Create a matcher
+
+        if(matcher.find(head))                                      //Search for the first occurance of regex
+        {
+            int index = matcher.start();                            //Get its index
+            return head == index;                                   //Check if the match is at the start
+        }
+
+        return false;                                               //No match -> return -1
+    }
+
+    /**
+     * Return the head to the start of the text.
+     */
+    public void reset()
+    {
+        head = 0;
+    }
+
+    public String getText()
+    {
+        return text;
+    }
+
+    public int getHead()
+    {
+        return head;
+    }
+
+    /**
+     * Build a regex for the all the word separators. </br>
+     * The regex is build by combining default special
+     * character (like \n), whitespaces, and special words
+     * given by the user.
+     *
+     * @param whiteSpaces A regex that matches whitespaces
+     * @param specialWords Array of regex that each match a special word
+     * @return A regex matching all type of word separator
+     */
+    private String buildWordSeparators(String whiteSpaces, String... specialWords)
+    {
+        StringBuilder wordSeparatorBuilder = new StringBuilder();
+
+        //Add default newline and end-of-line to word separators
+        wordSeparatorBuilder.append(DEFAULT_NEW_LINE);
+        wordSeparatorBuilder.append("|").append(DEFAULT_END_OF_FILE);
+
+        //Add white spaces to word separators
+        if(whiteSpaces != null
+                && !whiteSpaces.isEmpty()) {
+            wordSeparatorBuilder.append("|").append(whiteSpaces);
+        }
+
+        //Add the custom word separators
+        if(specialWords != null)
+        {
+            for(String specialWord : specialWords)
+            {
+                if(!specialWord.isEmpty())
+                {
+                    wordSeparatorBuilder.append("|").append(specialWord);
+                }
+            }
+        }
+
+        return wordSeparatorBuilder.toString();
     }
 
     /**
@@ -175,7 +209,7 @@ public class WordReader
      * @param regex The pattern to search
      * @return The new position of the head, or -1
      */
-    public int moveToFirst(String regex)
+    private int moveToFirst(String regex)
     {
         Matcher matcher = Pattern.compile(regex).matcher(text);     //Create a matcher
 
@@ -200,7 +234,7 @@ public class WordReader
      * @param regex The pattern to search
      * @return The new position of the head, or -1
      */
-    public int moveAfterFirst(String regex)
+    private int moveAfterFirst(String regex)
     {
         Matcher matcher = Pattern.compile(regex).matcher(text);     //Create a matcher
 
@@ -212,78 +246,5 @@ public class WordReader
         }
 
         return -1;                                                  //No match -> return -1
-    }
-
-    public boolean match(String regex)
-    {
-        Matcher matcher = Pattern.compile(regex).matcher(text);     //Create a matcher
-
-        if(matcher.find(head))                                      //Search for the first occurance of regex
-        {
-            int index = matcher.start();                            //Get its index
-            return head == index;                                   //Check if the match is at the start
-        }
-
-        return false;                                               //No match -> return -1
-    }
-
-    public String getText()
-    {
-        return text;
-    }
-
-    public int getHead()
-    {
-        return head;
-    }
-
-    public void setHead(int pos)
-    {
-        head = pos;
-    }
-
-    public void reset()
-    {
-        head = 0;
-    }
-
-    private String buildWhiteSpaces(String customWhiteSpaces)
-    {
-        if(customWhiteSpaces == null || customWhiteSpaces.isEmpty()) return DEFAULT_WHITE_SPACE;
-        return DEFAULT_WHITE_SPACE + "|" + customWhiteSpaces;
-    }
-
-    private String buildWordSeparators(String customWhiteSpaces, String customWordSeparators,
-                                       HashMap<String, String> specialDelimiters)
-    {
-        StringBuilder wordSeparatorBuilder = new StringBuilder();
-
-        //Add white spaces to word separators
-        wordSeparatorBuilder.append(DEFAULT_WHITE_SPACE);
-        if(customWhiteSpaces != null
-                && !customWhiteSpaces.isEmpty()) {
-            wordSeparatorBuilder.append("|").append(customWhiteSpaces);
-        }
-
-        //Add default newline and end-of-line to word separators
-        wordSeparatorBuilder.append("|").append(DEFAULT_NEW_LINE);
-        wordSeparatorBuilder.append("|").append(DEFAULT_END_OF_FILE);
-
-        //Add the custom word separators
-        if(customWordSeparators != null
-                && !customWordSeparators.isEmpty()) {
-            wordSeparatorBuilder.append("|").append(customWordSeparators);
-        }
-
-        //Add the delimiters as word separators
-        if(specialDelimiters != null)
-        {
-            for (String key : specialDelimiters.keySet())
-            {
-                wordSeparatorBuilder.append("|").append(key);
-            }
-        }
-
-        return wordSeparatorBuilder.toString();
     }
 }
