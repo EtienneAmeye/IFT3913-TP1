@@ -19,7 +19,7 @@ public class ClassCounter
     public static final String NEW_LINE = "\n";
     public static final String WHITE_SPACES = "[ \t\r]";
     public static final String SEPARATORS = "[;=\\[\\]\\{\\}\\(\\)]";
-    public static final String STRING = "(\"\")|(\"([^\"]|([^\\\\]\\\\(\\\\\\\\)*\"))*[^\\\\](\\\\\\\\)*\")";
+    public static final String STRING = "(\"\")|(\"([^\"]|([^\\\\]\\\\(\\\\\\\\)*\"))*[^\\\\](\\\\\\\\)*\")|(\"(\\\\\\\\)*\")";
     public static final String CHAR = "('')|('([^']|([^\\\\]\\\\(\\\\\\\\)*'))*[^\\\\](\\\\\\\\)*')";
     public static final String COMMENT = "//.*";
     public static final String MULTI_LINE_COMMENT = "/\\*([^\\*]|(\\*[^/]))*\\*/";       //Can't be used as a special words
